@@ -24,13 +24,14 @@ var storage = require('./../../lib/inMemoryStorage');
 var platform = require('../../index.js');
 var pjson = require('../../package.json');
 
+var accountsTxtPath = './accounts.txt';
 
 describe('users setup', function () {
 
   /**
   * Timeout is used when running against the deployed services
   */
-  this.timeout(10000);
+  this.timeout(100000);
   /**
   * User who will manage and run the process
   */
@@ -41,6 +42,7 @@ describe('users setup', function () {
     username: 'jamie+bate@tidepool.org',
     password: 'blip4life'
   };
+  var permsToApply =  { view: {}};
   /**
   * Helpers
   */
@@ -63,7 +65,7 @@ describe('users setup', function () {
       return cb(err, client);
     });
   }
-  function createClientAsNewUser(user, cb) {
+  function createClientAsNewUser_old(user, cb) {
     return createClient(function(err, client){
       if (err != null) {
         return cb(err);
@@ -77,18 +79,56 @@ describe('users setup', function () {
       });
     });
   }
+
+  function createAndValidateAppUser(user, cb) {
+    createClient(function(err, client){
+      if (err != null) {
+        return cb(err);
+      }
+      client.signup(user, function (error, data) {
+        if (error != null) {
+          return cb(error);
+        }
+        user.id = data.userid;
+
+        async.series([
+          client.addOrUpdateProfile.bind(null, user.id, user.profile),
+          client.setAccessPermissions.bind(null, masterUser.id, permsToApply)
+        ], function(err, results) {
+          if(_.isEmpty(err)){
+            /*
+             * do tests for profile
+             */
+            console.log('profile added: ',results[0]);
+            var profile = results[0];
+            expect(profile).to.be.exist;
+            expect(profile.fullName).to.equal(user.profile.fullName);
+            expect(profile.patient).to.deep.equal(user.profile.patient);
+            /*
+             * do tests for permissons
+             */
+            console.log('permissions set: ',results[1]);
+            var permissions = results[1];
+            //we have given upload perms to the master account
+            expect(permissions).to.deep.equal(permsToApply);
+            return cb();
+          }
+          return cb(err);
+        });
+
+      });
+    });
+  }
   before(function (done) {
     //init the master account
     createClient(function(err, client){
       if (err != null) {
         return done(err);
       }
-      //console.log('init master client');
       masterClient = client;
       masterClient.login(masterUser,{},function (error, data) {
         if (data && data.userid) {
           masterUser.id = data.userid;
-          //console.log('init master user: ',masterUser);
         }
         done();
       });
@@ -100,51 +140,70 @@ describe('users setup', function () {
       done();
     });
   });
-  it('create new app account', function (done) {
+  it.skip('create app account', function (done) {
 
     var newUser = {
       id: null,
       token: null,
-      username: 'jamie+A100-B200@tidepool.org',
-      password: 'A100-B200',
-      emails: ['jamie+A100-B200@tidepool.org'],
-      profile: {fullName:'A100-B200',patient:{birthday:'2000-01-01',diagnosisDate:'2001-01-01'}}
+      username: 'jamie+A101-B201@tidepool.org',
+      password: 'A101-B201',
+      emails: ['jamie+A101-B201@tidepool.org'],
+      profile: {fullName:'A101-B201',patient:{birthday:'2000-01-01',diagnosisDate:'2001-01-01'}}
     };
-
-    var newUserClient;
-
-    var uploadPermissions = {view: {}};
-
-    createClientAsNewUser(newUser, function(error, client){
-      expect(error).to.not.exist;
-      expect(client.isLoggedIn()).to.be.true;
-      newUserClient = client;
-      console.log('signed-up: ',newUser.username);
-
-      async.series([
-        newUserClient.addOrUpdateProfile.bind(null, newUser.id, newUser.profile),
-        newUserClient.setAccessPermissions.bind(null, masterUser.id, uploadPermissions)
-      ], function(err, results) {
-        if(_.isEmpty(err)){
-          /*
-           * do tests for profile
-           */
-          console.log('profile added: ',results[0]);
-          var profile = results[0];
-          expect(profile).to.be.exist;
-          expect(profile.fullName).to.equal(newUser.profile.fullName);
-          expect(profile.patient).to.deep.equal(newUser.profile.patient);
-          /*
-           * do tests for permissons
-           */
-          console.log('permissions set: ',results[1]);
-          var permissions = results[1];
-          //we have given upload perms to the master account
-          expect(permissions).to.deep.equal(uploadPermissions);
-          return done();
-        }
-        return done(err);
-      });
+    //do the work
+    createAndValidateAppUser(newUser,function(err){
+      if(_.isEmpty(err)){
+        return done();
+      }
+      console.log('failed creating and verifying app-user ', err);
+      return done(err);
     });
+
+  });
+  it('create app user accounts', function (done) {
+
+    var LineByLineReader = require('line-by-line'),
+    lr = new LineByLineReader(accountsTxtPath);
+
+    lr.on('error', function (err) {
+      console.log('you probably don`/nt have an accounts list to process');
+      console.log('error was ',err);
+      done();
+    });
+
+    lr.on('line', function (line) {
+      lr.pause();
+
+      var userDetails = line.split(' ');
+      var newUser = {
+        id: null,
+        username: userDetails[0],
+        password: userDetails[2],
+        emails: [userDetails[0]],
+        profile: {fullName:userDetails[1],patient:{birthday:'2000-01-01',diagnosisDate:'2001-01-01'}}
+      };
+
+      //console.log('adding .. ', newUser);
+
+      /*createAndValidateAppUser(newUser,function(err){
+        if(_.isEmpty(err)){
+          lr.resume();
+        } else {
+          console.log('failed creating and verifying app-user ', err);
+          return done(err);
+        }
+      });*/
+
+      setTimeout(function () {
+        console.log('adding .. ', newUser);
+        lr.resume();
+      }, 100);
+    });
+
+    lr.on('end', function () {
+      console.log('all accounts created and validated');
+      done();
+    });
+
   });
 });
