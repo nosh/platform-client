@@ -26,7 +26,28 @@ var pjson = require('../../package.json');
 
 var accountsTxtPath = './accounts.txt';
 
-describe('users setup', function () {
+function createClient(cb) {
+  var myLog = { info: console.log, warn: console.log };
+
+  var client = platform(
+    {
+      //host: 'https://api.tidepool.io',
+      host: 'http://localhost:8009',
+      metricsSource : pjson.name,
+      metricsVersion : pjson.version
+    },
+    {
+      superagent : superagent,
+      log : myLog,
+      localStore: storage()
+    }
+  );
+  client.initialize(function(err){
+    return cb(err, client);
+  });
+}
+
+describe.skip('create users', function () {
 
   /**
   * Timeout is used when running against the deployed services
@@ -36,50 +57,11 @@ describe('users setup', function () {
   * User who will manage and run the process
   */
   var masterClient = null;
-  var masterUser = {
-    id: null,
-    token: null,
-    username: 'jamie+bate@tidepool.org',
-    password: 'blip4life'
-  };
-  var permsToApply =  { view: {}};
+  var masterUser = { id: null, token: null, username: 'jamie@tidepool.org', password: 'blip4life' };
+  var fullPermsToApply =  { upload:{}, view:{}, note:{}};
   /**
   * Helpers
   */
-  function createClient(cb) {
-    var myLog = { info: console.log, warn: console.log };
-
-    var client = platform(
-      {
-        host: 'http://localhost:8009',
-        metricsSource : pjson.name,
-        metricsVersion : pjson.version
-      },
-      {
-        superagent : superagent,
-        log : myLog,
-        localStore: storage()
-      }
-    );
-    client.initialize(function(err){
-      return cb(err, client);
-    });
-  }
-  function createClientAsNewUser_old(user, cb) {
-    return createClient(function(err, client){
-      if (err != null) {
-        return cb(err);
-      }
-      return client.signup(user, function (error, data) {
-        if (error) {
-          return cb(error, null);
-        }
-        user.id = data.userid;
-        return cb(null, client);
-      });
-    });
-  }
-
   function createAndValidateAppUser(user, cb) {
     createClient(function(err, client){
       if (err != null) {
@@ -93,13 +75,13 @@ describe('users setup', function () {
 
         async.series([
           client.addOrUpdateProfile.bind(null, user.id, user.profile),
-          client.setAccessPermissions.bind(null, masterUser.id, permsToApply)
+          client.setAccessPermissions.bind(null, masterUser.id, fullPermsToApply)
         ], function(err, results) {
           if(_.isEmpty(err)){
             /*
              * do tests for profile
              */
-            console.log('profile added: ',results[0]);
+            //console.log('user profile added: ',results[0]);
             var profile = results[0];
             expect(profile).to.be.exist;
             expect(profile.fullName).to.equal(user.profile.fullName);
@@ -107,16 +89,28 @@ describe('users setup', function () {
             /*
              * do tests for permissons
              */
-            console.log('permissions set: ',results[1]);
+            //console.log('user permissions set: ',results[1]);
             var permissions = results[1];
             //we have given upload perms to the master account
-            expect(permissions).to.deep.equal(permsToApply);
-            return cb();
+            expect(permissions).to.deep.equal(fullPermsToApply);
+            return cb(null);
           }
           return cb(err);
         });
 
       });
+    });
+  }
+  function createAccounts(userOne, userTwo, cb) {
+    async.waterfall([
+      function(callback) {
+        createAndValidateAppUser(userOne, callback);
+      },
+      function(callback) {
+        createAndValidateAppUser(userTwo, callback);
+      }
+    ], function (err, result) {
+      return cb(err);
     });
   }
   before(function (done) {
@@ -129,6 +123,7 @@ describe('users setup', function () {
       masterClient.login(masterUser,{},function (error, data) {
         if (data && data.userid) {
           masterUser.id = data.userid;
+          //console.log('main account logged in: ',masterUser.id);
         }
         done();
       });
@@ -140,15 +135,14 @@ describe('users setup', function () {
       done();
     });
   });
-  it.skip('create app account', function (done) {
-
+  it.skip('from hard coded', function (done) {
     var newUser = {
       id: null,
       token: null,
       username: 'jamie+A101-B201@tidepool.org',
       password: 'A101-B201',
       emails: ['jamie+A101-B201@tidepool.org'],
-      profile: {fullName:'A101-B201',patient:{birthday:'2000-01-01',diagnosisDate:'2001-01-01'}}
+      profile: {fullName:'A101-B201',patient:{birthday:'1900-01-01',diagnosisDate:'1900-01-01'}}
     };
     //do the work
     createAndValidateAppUser(newUser,function(err){
@@ -158,10 +152,8 @@ describe('users setup', function () {
       console.log('failed creating and verifying app-user ', err);
       return done(err);
     });
-
   });
-  it('create app user accounts', function (done) {
-
+  it('from accounts list', function (done) {
     var LineByLineReader = require('line-by-line'),
     lr = new LineByLineReader(accountsTxtPath);
 
@@ -175,29 +167,217 @@ describe('users setup', function () {
       lr.pause();
 
       var userDetails = line.split(' ');
-      var newUser = {
+      var userOne = {
         id: null,
         username: userDetails[0],
         password: userDetails[2],
         emails: [userDetails[0]],
-        profile: {fullName:userDetails[1],patient:{birthday:'2000-01-01',diagnosisDate:'2001-01-01'}}
+        profile: {fullName:userDetails[1],patient:{birthday:'1900-01-01',diagnosisDate:'1900-01-01'}}
       };
 
-      //console.log('adding .. ', newUser);
+      if(userDetails.length === 6){
+        var userTwo = {
+          id: null,
+          username: userDetails[3],
+          password: userDetails[5],
+          emails: [userDetails[3]],
+          profile: {fullName:userDetails[4],patient:{birthday:'1900-01-01',diagnosisDate:'1900-01-01'}}
+        };
 
-      /*createAndValidateAppUser(newUser,function(err){
-        if(_.isEmpty(err)){
-          lr.resume();
-        } else {
-          console.log('failed creating and verifying app-user ', err);
-          return done(err);
+        console.log('adding ... ', userOne.username, userTwo.username);
+
+        createAccounts(userOne, userTwo, function(err){
+          if(_.isEmpty(err)){
+            lr.resume();
+          } else {
+            console.log('failed creating users accounts', err);
+            return done(err);
+          }
+        });
+
+      } else {
+
+        console.log('adding ... ', userOne.username);
+
+        createAndValidateAppUser(userOne,function(err){
+          if(_.isEmpty(err)){
+            lr.resume();
+          } else {
+            console.log('failed creating and verifying app-user ', err);
+            return done(err);
+          }
+        });
+      }
+    });
+
+    lr.on('end', function () {
+      console.log('all accounts created and validated');
+      done();
+    });
+  });
+});
+describe('link users', function () {
+  this.timeout(100000);
+  var uploadPermsToApply = { upload:{}};
+  function getClient(user, cb) {
+    createClient(function(err, client){
+      if (err != null) {
+        return cb(err);
+      }
+      client.login(user, function (error, data) {
+        if (error != null) {
+          return cb(error);
         }
-      });*/
+        return cb(null, client);
+      });
+    });
+  }
+  function linkAccounts(userOne, userTwo, linkPerms, cb) {
+    async.waterfall([
+      function(callback) {
+        getClient(userTwo, function(err, client){
+          callback(err, client.getUserId());
+        });
+      },
+      function(uidTwo,callback) {
+        getClient(userOne, function(err, client){
+          callback(err, client, client.getUserId(), uidTwo);
+        });
+      },
+      function(loggedInClient, uidOne, uidTwo, callback) {
+        console.log('linking ... ', uidOne, uidTwo, linkPerms);
+        loggedInClient.setAccessPermissions(uidTwo, linkPerms, function(err,data){
+          //console.log('done linking err? ',err);
+          //console.log('done linking result? ',data);
+          if(_.isEmpty(err)){
+            expect(data).to.deep.equal(linkPerms);
+          }
+          callback(err);
+        });
+      }
+    ], function (err, result) {
+      return cb(err);
+    });
+  }
+  it('from accounts list', function (done) {
+    var LineByLineReader = require('line-by-line'),
+    lr = new LineByLineReader(accountsTxtPath);
 
-      setTimeout(function () {
-        console.log('adding .. ', newUser);
-        lr.resume();
-      }, 100);
+    lr.on('error', function (err) {
+      console.log('you probably don`/nt have an accounts list to process');
+      console.log('error was ',err);
+      done();
+    });
+
+    lr.on('line', function (line) {
+      lr.pause();
+
+      var userDetails = line.split(' ');
+
+      if(userDetails.length === 6){
+        var userOne = { id: null, username: userDetails[0], password: userDetails[2] };
+        var userTwo = { id: null, username: userDetails[3], password: userDetails[5] };
+
+        console.log('linking ... ', userOne.username, userTwo.username);
+
+        linkAccounts(userOne, userTwo, uploadPermsToApply, function(err){
+          if(_.isEmpty(err)){
+            lr.resume();
+          } else {
+            console.log('failed creating linked users accounts', err);
+            return done(err);
+          }
+        });
+      }
+    });
+    lr.on('end', function () {
+      console.log('all accounts created and validated');
+      done();
+    });
+  });
+});
+/*
+describe.skip('link users', function () {
+  this.timeout(100000);
+  var loggedInClient = null;
+  var uploadPermsToApply =  { upload:{}};
+  function loginUser(user,cb) {
+    createClient(function(err, client){
+      if (_.isEmpty(err)) {
+        client.login(user,{},function (error, data) {
+          loggedInClient = client;
+          if (data && data.userid) {
+            return cb(null, data.userid);
+          }
+          return cb({err:'user not found'});
+        });
+      }
+      return cb(err);
+    });
+  }
+  function linkAccounts(userOne, userTwo, linkPerms, cb) {
+
+    //user that we will give the linkPerms
+    async.waterfall([
+      function(callback) {
+        loginUser(userTwo, function(err, id){
+          console.log('#1 got id for userTwo: ',id);
+          callback(err, id);
+        });
+      },
+      function(userid, callback) {
+        loginUser(userOne, function(err){
+          console.log('#2 got id for userTwo: ',userid);
+          callback(err, userid);
+        });
+      },
+      function(userid, callback) {
+        console.log('#3 id for userTwo: ', userid);
+        loggedInClient.setAccessPermissions(userid, linkPerms, function(err, data){
+          if(_.isEmpty(err)){
+            expect(data).to.deep.equal(linkPerms);
+            console.log('link permissons set ',data);
+          }
+          callback(err);
+        });
+      }
+    ], function (err, result) {
+      if(!_.isEmpty(err)){
+        console.log('err linking accounts ',err);
+      }
+      return cb(err);
+    });
+  }
+  it('from supplied file', function (done) {
+    var LineByLineReader = require('line-by-line'),
+    lr = new LineByLineReader(accountsTxtPath);
+
+    lr.on('error', function (err) {
+      console.log('you probably don`/nt have an accounts list to process');
+      console.log('error was ',err);
+      done();
+    });
+
+    lr.on('line', function (line) {
+      lr.pause();
+
+      var userDetails = line.split(' ');
+
+      if(userDetails.length === 6){
+        var userOne = { id: null, username: userDetails[0], password: userDetails[2] };
+        var userTwo = { id: null, username: userDetails[3], password: userDetails[5] };
+        console.log('linking ... ', userOne.username, userTwo.username, uploadPermsToApply);
+        linkAccounts(userOne, userTwo, uploadPermsToApply, function(err){
+          if(_.isEmpty(err)){
+            console.log('linked: ', userOne.username, userTwo.username);
+            lr.resume();
+          } else {
+            console.log('failed linking: ',userOne.username, userTwo.username, err);
+            return done(err);
+          }
+        });
+      }
+      lr.resume();
     });
 
     lr.on('end', function () {
@@ -207,3 +387,4 @@ describe('users setup', function () {
 
   });
 });
+*/
