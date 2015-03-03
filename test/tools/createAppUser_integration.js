@@ -31,8 +31,8 @@ function createClient(cb) {
 
   var client = platform(
     {
-      //host: 'https://api.tidepool.io',
-      host: 'http://localhost:8009',
+      host: 'https://api.tidepool.io',
+      //host: 'http://localhost:8009',
       metricsSource : pjson.name,
       metricsVersion : pjson.version
     },
@@ -52,7 +52,7 @@ describe.skip('create users', function () {
   /**
   * Timeout is used when running against the deployed services
   */
-  this.timeout(100000);
+  this.timeout(10000000);
   /**
   * User who will manage and run the process
   */
@@ -190,8 +190,9 @@ describe.skip('create users', function () {
           if(_.isEmpty(err)){
             lr.resume();
           } else {
-            console.log('failed creating users accounts', err);
-            return done(err);
+            console.log('failed adding ', userOne.username, userTwo.username);
+            console.log('failed reason ', err);
+            lr.resume();
           }
         });
 
@@ -217,7 +218,7 @@ describe.skip('create users', function () {
   });
 });
 describe('link users', function () {
-  this.timeout(100000);
+  this.timeout(10000000);
   var uploadPermsToApply = { upload:{}};
   function getClient(user, cb) {
     createClient(function(err, client){
@@ -278,7 +279,7 @@ describe('link users', function () {
         var userOne = { id: null, username: userDetails[0], password: userDetails[2] };
         var userTwo = { id: null, username: userDetails[3], password: userDetails[5] };
 
-        console.log('linking ... ', userOne.username, userTwo.username);
+        console.log('linking ... ', userOne, userTwo);
 
         linkAccounts(userOne, userTwo, uploadPermsToApply, function(err){
           if(_.isEmpty(err)){
