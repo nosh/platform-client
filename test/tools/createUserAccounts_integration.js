@@ -31,8 +31,8 @@ function createClient(cb) {
 
   var client = platform(
     {
-      host: 'https://devel-api.tidepool.io',
-      //host: 'http://localhost:8009',
+      //host: 'https://api.tidepool.io',
+      host: 'http://localhost:8009',
       metricsSource : pjson.name,
       metricsVersion : pjson.version
     },
@@ -56,7 +56,7 @@ describe('create users', function () {
   * User who will manage and run the process
   */
   var masterClient = null;
-  var masterUser = { id: null, token: null, username: 'jamie+study@tidepool.org', password: 'blip4life' };
+  var masterUser = { id: null, token: null, username: 'jamie+skip@tidepool.org', password: 'blip4life' };
   var fullPermsToApply =  { upload:{}, view:{}, note:{}};
   /**
    * Line reader
@@ -165,6 +165,7 @@ describe('create users', function () {
           emails: [userDetails[0]],
           password: userDetails[1],
           profile: {fullName:userDetails[2],patient:{birthday:'1900-01-01',diagnosisDate:'1900-01-01'}}
+          //profile: {fullName:userDetails[2],patient:{birthday:'1900-01-01',diagnosisDate:'1900-01-01'}}
         };
 
         console.log('adding ... ', userOne);

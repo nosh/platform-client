@@ -26,12 +26,15 @@ var pjson = require('../../package.json');
 
 var accountsTxtPath = './accounts.txt';
 
+
+
+
 function createClient(cb) {
   var myLog = { info: console.log, warn: console.log };
 
   var client = platform(
     {
-      host: 'https://devel-api.tidepool.io',
+      host: 'https://api.tidepool.io',
       //host: 'http://localhost:8009',
       metricsSource : pjson.name,
       metricsVersion : pjson.version
@@ -49,6 +52,7 @@ function createClient(cb) {
 describe('link users', function () {
   this.timeout(10000000);
   var uploadPermsToApply = { upload:{}};
+
   function getClient(user, cb) {
     createClient(function(err, client){
       if (err != null) {
@@ -120,14 +124,14 @@ describe('link users', function () {
           if(_.isEmpty(err)){
             lr.resume();
           } else {
-            console.log('failed creating linked users accounts', err);
+            console.log('failed linking users accounts', err);
             return done(err);
           }
         });
       }
     });
     lr.on('end', function () {
-      console.log('all accounts created and validated');
+      console.log('all accounts linked validated');
       done();
     });
   });
