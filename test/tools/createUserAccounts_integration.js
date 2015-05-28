@@ -31,7 +31,7 @@ function createClient(cb) {
 
   var client = platform(
     {
-      //host: 'https://api.tidepool.io',
+      //host: 'https://staging-api.tidepool.io',
       host: 'http://localhost:8009',
       metricsSource : pjson.name,
       metricsVersion : pjson.version
@@ -78,7 +78,7 @@ describe('create users', function () {
 
         async.series([
           client.addOrUpdateProfile.bind(null, user.id, user.profile),
-          //client.setAccessPermissions.bind(null, masterUser.id, fullPermsToApply)
+          client.setAccessPermissions.bind(null, masterUser.id, fullPermsToApply)
         ], function(err, results) {
           if(_.isEmpty(err)){
             /*
@@ -147,7 +147,7 @@ describe('create users', function () {
     });
   });
 
-  it('as singles from accounts list', function (done) {
+  it.skip('as singles from accounts list', function (done) {
     var lr = new LineByLineReader(accountsTxtPath);
     lr.on('line', function (line) {
 
@@ -190,7 +190,7 @@ describe('create users', function () {
       done();
     });
   });
-  it.skip('as pairs for linking from accounts list', function (done) {
+  it('as pairs for linking from accounts list', function (done) {
 
     var lr = new LineByLineReader(accountsTxtPath);
 

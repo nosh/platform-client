@@ -34,8 +34,9 @@ function createClient(cb) {
 
   var client = platform(
     {
-      host: 'https://api.tidepool.io',
-      //host: 'http://localhost:8009',
+      //host: 'https://api.tidepool.io',
+      //host: 'https://staging-api.tidepool.io',
+      host: 'http://localhost:8009',
       metricsSource : pjson.name,
       metricsVersion : pjson.version
     },

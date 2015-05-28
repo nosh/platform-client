@@ -27,15 +27,13 @@ var pjson = require('../../package.json');
 var accountsTxtPath = './accounts.txt';
 
 
-
-
 function createClient(cb) {
   var myLog = { info: console.log, warn: console.log };
 
   var client = platform(
     {
-      //host: 'https://api.tidepool.io',
-      host: 'http://localhost:8009',
+      host: 'https://devel-api.tidepool.io',
+      //host: 'http://localhost:8009',
       metricsSource : pjson.name,
       metricsVersion : pjson.version
     },
@@ -49,7 +47,7 @@ function createClient(cb) {
     return cb(err, client);
   });
 }
-describe('link users', function () {
+describe('update users', function () {
   this.timeout(10000000);
   var uploadPermsToApply = { upload:{}};
 
@@ -114,7 +112,7 @@ describe('link users', function () {
         done();
       } else {
         var user = { id: null, username: userDetails[0], password: userDetails[1] };
-        var updates = { fullName:userDetails[2], patient: '' };
+        var updates = { fullName:userDetails[2] };
 
         updateAccountProfile(user, updates, function(err){
           if(_.isEmpty(err)){
